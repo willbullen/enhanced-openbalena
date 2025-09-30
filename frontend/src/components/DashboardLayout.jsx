@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -25,6 +26,8 @@ import {
 const DashboardLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [darkMode, setDarkMode] = useState(false)
+  const navigate = useNavigate()
+  const location = useLocation()
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode)
@@ -32,11 +35,11 @@ const DashboardLayout = ({ children }) => {
   }
 
   const navigationItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', active: true },
-    { icon: Smartphone, label: 'Devices', count: 24 },
-    { icon: Users, label: 'Fleets', count: 3 },
-    { icon: Activity, label: 'Logs' },
-    { icon: Settings, label: 'Settings' },
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { icon: Smartphone, label: 'Devices', path: '/devices', count: 24 },
+    { icon: Users, label: 'Fleets', path: '/fleets', count: 3 },
+    { icon: Activity, label: 'Logs', path: '/logs' },
+    { icon: Settings, label: 'Settings', path: '/settings' },
   ]
 
   const deviceStats = [
@@ -65,8 +68,9 @@ const DashboardLayout = ({ children }) => {
           {navigationItems.map((item, index) => (
             <Button
               key={index}
-              variant={item.active ? "default" : "ghost"}
+              variant={location.pathname === item.path ? "default" : "ghost"}
               className="w-full justify-start"
+              onClick={() => navigate(item.path)}
             >
               <item.icon className="w-4 h-4 mr-3" />
               {item.label}

@@ -14,7 +14,6 @@ from django.utils import timezone
 from datetime import timedelta
 import json
 
-@login_required
 def dashboard_view(request):
     """Main dashboard view"""
     return render(request, 'dashboard/index.html')

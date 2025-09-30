@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -19,6 +20,7 @@ import {
 } from 'lucide-react'
 
 const DashboardOverview = () => {
+  const navigate = useNavigate()
   const stats = [
     {
       title: 'Total Devices',
@@ -173,7 +175,7 @@ const DashboardOverview = () => {
                 Latest activity from your device fleet
               </CardDescription>
             </div>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => navigate('/devices')}>
               View All
               <ExternalLink className="w-4 h-4 ml-2" />
             </Button>
