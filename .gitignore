@@ -8,3 +8,7 @@ dist/
 build/
 .vscode/
 .idea/
+venv/
+*.sqlite3
+.coverage
+htmlcov/
