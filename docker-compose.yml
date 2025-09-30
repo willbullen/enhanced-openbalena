@@ -1,0 +1,176 @@
+version: '3.8'
+
+services:
+  # Enhanced Web Interface (Django + shadcn/ui)
+  web-interface:
+    build:
+      context: ./web-interface
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8000"
+    environment:
+      - DEBUG=1
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/enhanced_openbalena
+      - REDIS_URL=redis://redis:6379/0
+      - OPENBALENA_API_URL=http://api:1337
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
+    volumes:
+      - ./web-interface:/app
+      - static_files:/app/staticfiles
+    depends_on:
+      - db
+      - redis
+      - api
+    restart: unless-stopped
+
+  # Frontend Build Service (for production)
+  frontend-builder:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    volumes:
+      - static_files:/app/dist
+    command: npm run build
+    profiles:
+      - production
+
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=enhanced_openbalena
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  # OpenBalena API Service
+  api:
+    image: balena/open-balena-api:latest
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=enhanced_openbalena
+      - REDIS_HOST=redis:6379
+      - REDIS_IS_CLUSTER=false
+      - LOG_LEVEL=DEBUG
+      - PRODUCTION_MODE=false
+    volumes:
+      - certs_data:/certs
+      - resin_data:/balena
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "1337:1337"
+    restart: unless-stopped
+
+  # OpenBalena Registry
+  registry:
+    image: balena/open-balena-registry:latest
+    environment:
+      - REGISTRY2_CACHE_ADDR=redis:6379
+      - REGISTRY2_CACHE_DB=1
+      - REGISTRY2_CACHE_ENABLED=true
+    volumes:
+      - certs_data:/certs
+      - resin_data:/balena
+      - registry_data:/data
+    depends_on:
+      - redis
+    ports:
+      - "2375:2375"
+    restart: unless-stopped
+
+  # OpenBalena VPN Service
+  vpn:
+    image: balena/open-balena-vpn:latest
+    environment:
+      - VPN_PORT=443
+    volumes:
+      - certs_data:/certs
+      - resin_data:/balena
+    depends_on:
+      - api
+    ports:
+      - "443:443"
+    devices:
+      - /dev/net/tun
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    restart: unless-stopped
+
+  # S3 Compatible Storage
+  s3:
+    image: balena/open-balena-s3:latest
+    environment:
+      - BUCKETS=registry-data;web-resources
+    volumes:
+      - s3_data:/export
+      - certs_data:/certs
+      - resin_data:/balena
+    ports:
+      - "9000:9000"
+    restart: unless-stopped
+
+  # HAProxy Load Balancer
+  haproxy:
+    build:
+      context: ./haproxy
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+      - "1936:1936"  # Stats page
+    volumes:
+      - certs_data:/certs
+      - resin_data:/balena
+    depends_on:
+      - web-interface
+      - api
+      - registry
+      - vpn
+      - s3
+    restart: unless-stopped
+
+  # Certificate Manager
+  cert-manager:
+    build:
+      context: ./cert-manager
+      dockerfile: Dockerfile
+    volumes:
+      - cert_manager_data:/etc/letsencrypt
+      - certs_data:/certs
+      - resin_data:/balena
+    environment:
+      - SUBJECT_ALTERNATE_NAMES=*
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  certs_data:
+  resin_data:
+  registry_data:
+  s3_data:
+  cert_manager_data:
+  static_files:
+
+networks:
+  default:
+    name: enhanced-openbalena
